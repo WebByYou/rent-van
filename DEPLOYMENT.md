@@ -21,8 +21,9 @@ This Nuxt 3 application is optimized for deployment on Vercel.
     - Select your repository.
 3.  **Configure Project**:
     - **Framework Preset**: Vercel should automatically detect **Nuxt.js**.
-    - **Build Command**: `npm run build` (default).
+    - **Build Command**: `npm run build` (this now includes `prisma generate`).
     - **Output Directory**: `.output` (default).
+    - **Install Command**: `npm install` (default).
 4.  **Environment Variables**:
     - Expand the "Environment Variables" section.
     - Add the following variables:
