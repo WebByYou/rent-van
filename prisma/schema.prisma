@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Van {
+  id          String   @id @default(uuid())
+  name        String
+  plateNumber String   // Hidden in public API
+  price       Int
+  features    Json
+  images      String[]
+  status      VanStatus @default(AVAILABLE)
+  description String
+  phone       String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum VanStatus {
+  AVAILABLE
+  BOOKED
+  MAINTENANCE
+}
+
+model SiteConfig {
+  key   String @id @unique
+  value String
+}
+
+model Page {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  content   String   // Text content only
+  updatedAt DateTime @updatedAt
+}
+
