@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Van } from "@prisma/client";
 
-const { data: vans, status } = await useFetch<Van[]>("/api/vans", {
+const { data: response, status } = await useFetch("/api/vans", {
   lazy: true,
 });
+const vans = computed(() => response.value?.data || []);
 const { data: config } = await useFetch("/api/config");
 
 const services = [

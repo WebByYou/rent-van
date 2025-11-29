@@ -13,6 +13,8 @@ definePageMeta({
 const search = ref("");
 const page = ref(1);
 const limit = ref(10);
+const sortBy = ref("createdAt");
+const sortOrder = ref<"asc" | "desc">("desc");
 const debouncedSearch = refDebounced(search, 500);
 
 // Data fetching
@@ -25,8 +27,10 @@ const {
     page,
     limit,
     search: debouncedSearch,
+    sortBy,
+    sortOrder,
   },
-  watch: [page, debouncedSearch],
+  watch: [page, debouncedSearch, sortBy, sortOrder],
 });
 
 const vans = computed(() => vansData.value?.data || []);
@@ -39,6 +43,7 @@ const isDrawerOpen = ref(false);
 const editingId = ref<string | null>(null);
 const isUploading = ref(false);
 const selectedFile = ref<File | null>(null); // New state for selected file
+const selectedIds = ref<string[]>([]); // State for bulk selection
 const initialValues = ref({
   name: "",
   plateNumber: "",
@@ -223,11 +228,34 @@ const handleFileUpload = (
   // Store file for upload on submit
   selectedFile.value = file;
 
-  // Create local preview
-  const previewUrl = URL.createObjectURL(file);
-  setFieldValue("images", previewUrl);
+  // Convert to Base64
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const base64String = e.target?.result as string;
+    setFieldValue("images", base64String);
+  };
+  reader.readAsDataURL(file);
 
   input.value = ""; // Reset input to allow selecting same file again
+};
+
+const columns = [
+  { key: "name", label: "ชื่อรถ", sortable: true },
+  { key: "plateNumber", label: "ทะเบียน", sortable: true },
+  { key: "phone", label: "เบอร์โทรศัพท์", sortable: true },
+  { key: "price", label: "ราคา/วัน", sortable: true },
+  { key: "status", label: "สถานะ", sortable: true },
+  { key: "actions", label: "จัดการ", align: "right" as const },
+];
+
+const handleSort = (key: string, order: "asc" | "desc") => {
+  sortBy.value = key;
+  sortOrder.value = order;
+};
+
+const handlePaginationUpdate = (newPagination: any) => {
+  page.value = newPagination.page;
+  limit.value = newPagination.limit;
 };
 
 const removeImage = (
@@ -237,6 +265,40 @@ const removeImage = (
 ) => {
   selectedFile.value = null;
   setFieldValue("images", "");
+};
+
+const deleteSelected = async () => {
+  if (selectedIds.value.length === 0) return;
+
+  const result = await Swal.fire({
+    title: "ยืนยันการลบหมู่?",
+    text: `คุณต้องการลบรถที่เลือกจำนวน ${selectedIds.value.length} คันใช่หรือไม่?`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#3085d6",
+    confirmButtonText: "ใช่, ลบเลย",
+    cancelButtonText: "ยกเลิก",
+  });
+
+  if (result.isConfirmed) {
+    try {
+      await $fetch("/api/vans/bulk-delete", {
+        method: "POST",
+        body: { ids: selectedIds.value },
+      });
+      await refreshVans();
+      selectedIds.value = []; // Clear selection
+      Swal.fire("ลบเรียบร้อย!", "รถที่เลือกถูกลบออกจากระบบแล้ว", "success");
+    } catch (e) {
+      Swal.fire({
+        title: "เกิดข้อผิดพลาด",
+        text: "ไม่สามารถลบรถได้",
+        icon: "error",
+        confirmButtonText: "ตกลง",
+      });
+    }
+  }
 };
 </script>
 
@@ -285,214 +347,81 @@ const removeImage = (
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div
-      v-if="status === 'pending'"
-      class="flex justify-center items-center py-12"
-    >
-      <div
-        class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"
-      ></div>
+    <!-- Bulk Actions -->
+    <div v-if="selectedIds.length > 0" class="mb-4">
+      <button
+        @click="deleteSelected"
+        class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center gap-2"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        ลบที่เลือก ({{ selectedIds.length }})
+      </button>
     </div>
 
     <!-- Van List -->
-    <div
-      v-else
-      class="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col"
+    <DataTable
+      :columns="columns"
+      :data="vans"
+      :loading="status === 'pending'"
+      :pagination="{ ...meta, limit }"
+      v-model:selectedIds="selectedIds"
+      :sortBy="sortBy"
+      :sortOrder="sortOrder"
+      @update:pagination="handlePaginationUpdate"
+      @sort="handleSort"
     >
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                ชื่อรถ
-              </th>
-              <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                ทะเบียน
-              </th>
-              <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                เบอร์โทรศัพท์
-              </th>
-              <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                ราคา/วัน
-              </th>
-              <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                สถานะ
-              </th>
-              <th
-                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                จัดการ
-              </th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-if="vans.length === 0">
-              <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                ไม่พบข้อมูลรถ
-              </td>
-            </tr>
-            <tr v-for="van in vans" :key="van.id">
-              <td
-                class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
-              >
-                {{ van.name }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{ van.plateNumber }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{ van.phone }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{ van.price.toLocaleString() }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <span
-                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                  :class="{
-                    'bg-green-100 text-green-800': van.status === 'AVAILABLE',
-                    'bg-red-100 text-red-800': van.status === 'BOOKED',
-                    'bg-yellow-100 text-yellow-800':
-                      van.status === 'MAINTENANCE',
-                  }"
-                >
-                  {{
-                    van.status === "AVAILABLE"
-                      ? "ว่าง"
-                      : van.status === "BOOKED"
-                      ? "จองแล้ว"
-                      : "ปรับปรุง"
-                  }}
-                </span>
-              </td>
-              <td
-                class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2"
-              >
-                <button
-                  @click="openDrawer(van)"
-                  class="text-indigo-600 hover:text-indigo-900"
-                >
-                  แก้ไข
-                </button>
-                <button
-                  @click="deleteVan(van.id)"
-                  class="text-red-600 hover:text-red-900"
-                >
-                  ลบ
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination -->
-      <div
-        class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6"
-        v-if="meta.total > 0"
-      >
-        <div
-          class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between"
+      <template #cell-name="{ item }">
+        <span class="font-medium text-gray-900">{{ item.name }}</span>
+      </template>
+      <template #cell-price="{ item }">
+        {{ item.price.toLocaleString() }}
+      </template>
+      <template #cell-status="{ item }">
+        <span
+          class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+          :class="{
+            'bg-green-100 text-green-800': item.status === 'AVAILABLE',
+            'bg-red-100 text-red-800': item.status === 'BOOKED',
+            'bg-yellow-100 text-yellow-800': item.status === 'MAINTENANCE',
+          }"
         >
-          <div>
-            <p class="text-sm text-gray-700">
-              แสดง
-              <span class="font-medium">{{ (meta.page - 1) * limit + 1 }}</span>
-              ถึง
-              <span class="font-medium">{{
-                Math.min(meta.page * limit, meta.total)
-              }}</span>
-              จาก
-              <span class="font-medium">{{ meta.total }}</span>
-              รายการ
-            </p>
-          </div>
-          <div>
-            <nav
-              class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
-              aria-label="Pagination"
-            >
-              <button
-                @click="page > 1 ? page-- : null"
-                :disabled="page === 1"
-                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span class="sr-only">Previous</span>
-                <svg
-                  class="h-5 w-5"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-              <span
-                class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
-              >
-                หน้า {{ meta.page }} / {{ meta.lastPage }}
-              </span>
-              <button
-                @click="page < meta.lastPage ? page++ : null"
-                :disabled="page === meta.lastPage"
-                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span class="sr-only">Next</span>
-                <svg
-                  class="h-5 w-5"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-            </nav>
-          </div>
-        </div>
-        <!-- Mobile Pagination -->
-        <div class="flex items-center justify-between sm:hidden w-full">
+          {{
+            item.status === "AVAILABLE"
+              ? "ว่าง"
+              : item.status === "BOOKED"
+              ? "จองแล้ว"
+              : "ปรับปรุง"
+          }}
+        </span>
+      </template>
+      <template #cell-actions="{ item }">
+        <div class="flex justify-end gap-2">
           <button
-            @click="page > 1 ? page-- : null"
-            :disabled="page === 1"
-            class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            @click="openDrawer(item)"
+            class="text-indigo-600 hover:text-indigo-900"
           >
-            ก่อนหน้า
+            แก้ไข
           </button>
-          <span class="text-sm text-gray-700">
-            หน้า {{ meta.page }} / {{ meta.lastPage }}
-          </span>
           <button
-            @click="page < meta.lastPage ? page++ : null"
-            :disabled="page === meta.lastPage"
-            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            @click="deleteVan(item.id)"
+            class="text-red-600 hover:text-red-900"
           >
-            ถัดไป
+            ลบ
           </button>
         </div>
-      </div>
-    </div>
+      </template>
+    </DataTable>
 
     <!-- Right Drawer -->
     <div
