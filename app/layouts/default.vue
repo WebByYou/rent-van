@@ -14,7 +14,10 @@ const { data: config } = await useFetch("/api/config");
       <div
         class="container mx-auto px-4 h-20 flex justify-between items-center"
       >
-        <NuxtLink to="/" class="text-2xl font-serif font-bold text-dark-900">
+        <NuxtLink
+          to="/"
+          class="text-lg md:text-2xl font-serif font-bold text-dark-900"
+        >
           VAN VIP SERVICE <span class="text-gold-500">THAILAND</span>
         </NuxtLink>
 
@@ -43,7 +46,7 @@ const { data: config } = await useFetch("/api/config");
 
         <NuxtLink
           to="/#contact"
-          class="bg-dark-900 text-white px-6 py-2.5 rounded-full font-medium hover:bg-gold-500 transition-all duration-300 shadow-lg shadow-gold-500/20"
+          class="bg-dark-900 text-white px-4 py-2 md:px-6 md:py-2.5 rounded-full font-medium hover:bg-gold-500 transition-all duration-300 shadow-lg shadow-gold-500/20 text-sm md:text-base"
         >
           ติดต่อเรา
         </NuxtLink>
