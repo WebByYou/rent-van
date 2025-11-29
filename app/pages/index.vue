@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Van } from "@prisma/client";
 
-const { data: vans } = await useFetch<Van[]>("/api/vans");
+const { data: vans, status } = await useFetch<Van[]>("/api/vans", {
+  lazy: true,
+});
 const { data: config } = await useFetch("/api/config");
 
 const services = [
@@ -162,7 +164,14 @@ useHead({
         </div>
 
         <div
-          v-if="vans && vans.length > 0"
+          v-if="status === 'pending'"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+        >
+          <VanCardSkeleton v-for="i in 6" :key="i" />
+        </div>
+
+        <div
+          v-else-if="vans && vans.length > 0"
           class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
         >
           <VanCard v-for="van in vans" :key="van.id" :van="van" />
