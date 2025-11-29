@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // Layout logic if needed
+const { data: config } = await useFetch("/api/config");
 </script>
 
 <template>
@@ -14,7 +15,7 @@
         class="container mx-auto px-4 h-20 flex justify-between items-center"
       >
         <NuxtLink to="/" class="text-2xl font-serif font-bold text-dark-900">
-          LUXURY<span class="text-gold-500">VAN</span>
+          VAN VIP SERVICE <span class="text-gold-500">THAILAND</span>
         </NuxtLink>
 
         <div class="hidden md:flex items-center gap-8">
@@ -40,11 +41,12 @@
           >
         </div>
 
-        <button
+        <NuxtLink
+          to="/#contact"
           class="bg-dark-900 text-white px-6 py-2.5 rounded-full font-medium hover:bg-gold-500 transition-all duration-300 shadow-lg shadow-gold-500/20"
         >
-          จองเลย
-        </button>
+          ติดต่อเรา
+        </NuxtLink>
       </div>
     </nav>
 
@@ -59,7 +61,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
           <div>
             <h3 class="text-2xl font-serif font-bold mb-6">
-              LUXURY<span class="text-gold-500">VAN</span>
+              VAN VIP SERVICE <span class="text-gold-500">THAILAND</span>
             </h3>
             <p class="text-gray-400 leading-relaxed">
               สัมผัสประสบการณ์ความสะดวกสบายและสไตล์ที่เหนือระดับกับบริการเช่ารถตู้พรีเมียมของเรา
@@ -70,26 +72,26 @@
           <div>
             <h4 class="text-lg font-bold mb-6 text-gold-400">ติดต่อเรา</h4>
             <ul class="space-y-4 text-gray-400">
-              <li class="flex items-center gap-3">
+              <li v-if="config?.contact_phone" class="flex items-center gap-3">
                 <span
                   class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gold-500"
                   >📞</span
                 >
-                081-234-5678
+                {{ config.contact_phone }}
               </li>
-              <li class="flex items-center gap-3">
+              <li v-if="config?.contact_line" class="flex items-center gap-3">
                 <span
                   class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gold-500"
                   >💬</span
                 >
-                Line: @luxuryvan
+                {{ config.contact_line }}
               </li>
-              <li class="flex items-center gap-3">
+              <li v-if="config?.contact_email" class="flex items-center gap-3">
                 <span
                   class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gold-500"
                   >📧</span
                 >
-                booking@luxuryvan.com
+                {{ config.contact_email }}
               </li>
             </ul>
           </div>

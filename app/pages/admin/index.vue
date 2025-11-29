@@ -14,6 +14,7 @@ const { data: vans, refresh: refreshVans } = await useFetch<Van[]>("/api/vans");
 // State
 const isDrawerOpen = ref(false);
 const editingId = ref<string | null>(null);
+const isUploading = ref(false);
 const initialValues = ref({
   name: "",
   plateNumber: "",
@@ -28,17 +29,13 @@ const initialValues = ref({
 // Validation Schema
 const schema = yup.object({
   name: yup.string().required("กรุณาระบุชื่อรถ"),
-  plateNumber: yup.string().required("กรุณาระบุทะเบียนรถ"),
-  phone: yup.string().required("กรุณาระบุเบอร์โทรศัพท์"),
-  price: yup
-    .number()
-    .required("กรุณาระบุราคา")
-    .min(1, "ราคาต้องมากกว่า 0")
-    .typeError("ราคาต้องเป็นตัวเลข"),
-  description: yup.string().required("กรุณาระบุรายละเอียด"),
-  features: yup.string().required("กรุณาระบุคุณสมบัติ"),
-  images: yup.string().required("กรุณาระบุ URL รูปภาพ"),
-  status: yup.string().required("กรุณาเลือกสถานะ"),
+  plateNumber: yup.string(),
+  phone: yup.string(),
+  price: yup.number().typeError("ราคาต้องเป็นตัวเลข"),
+  description: yup.string(),
+  features: yup.string(),
+  images: yup.string(),
+  status: yup.string(),
 });
 
 // Actions
@@ -155,6 +152,55 @@ const deleteVan = async (id: string) => {
       });
     }
   }
+};
+
+const handleFileUpload = async (
+  event: Event,
+  setFieldValue: any,
+  currentImages: string
+) => {
+  const input = event.target as HTMLInputElement;
+  const files = input.files;
+  if (!files || files.length === 0) return;
+
+  const file = files[0];
+  if (!file) return;
+
+  // Validate file type
+  if (!file.type.startsWith("image/")) {
+    Swal.fire("Error", "กรุณาอัปโหลดไฟล์รูปภาพเท่านั้น", "error");
+    input.value = "";
+    return;
+  }
+
+  isUploading.value = true;
+  const formData = new FormData();
+  formData.append("files", file);
+
+  try {
+    const { urls } = await $fetch<{ urls: string[] }>("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    // Replace existing image with new one (Single file mode)
+    if (urls.length > 0) {
+      setFieldValue("images", urls[0]);
+    }
+  } catch (e) {
+    Swal.fire("Error", "Upload failed", "error");
+  } finally {
+    isUploading.value = false;
+    input.value = ""; // Reset input
+  }
+};
+
+const removeImage = (
+  index: number,
+  setFieldValue: any,
+  currentImages: string
+) => {
+  setFieldValue("images", "");
 };
 </script>
 
@@ -328,6 +374,7 @@ const deleteVan = async (id: string) => {
                   :initial-values="initialValues"
                   @submit="onSubmit"
                   class="space-y-6"
+                  v-slot="{ setFieldValue, values }"
                 >
                   <div>
                     <label class="block text-sm font-medium text-gray-700"
@@ -422,15 +469,95 @@ const deleteVan = async (id: string) => {
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700"
-                      >รูปภาพ (URL คั่นด้วยคอมม่า)</label
+                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                      >รูปภาพ</label
                     >
-                    <Field
-                      name="images"
-                      type="text"
-                      placeholder="https://..."
-                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-indigo-500 focus:border-indigo-500"
-                    />
+
+                    <!-- Image Previews -->
+                    <div
+                      v-if="values.images"
+                      class="grid grid-cols-1 gap-2 mb-4"
+                    >
+                      <div
+                        class="relative group aspect-video bg-gray-100 rounded-lg overflow-hidden border"
+                      >
+                        <img
+                          :src="values.images"
+                          class="w-full h-full object-cover"
+                          alt="Van preview"
+                        />
+                        <button
+                          type="button"
+                          @click="removeImage(0, setFieldValue, values.images)"
+                          class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Upload Input -->
+                    <div class="flex items-center justify-center w-full">
+                      <label
+                        class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                      >
+                        <div
+                          class="flex flex-col items-center justify-center pt-5 pb-6"
+                        >
+                          <svg
+                            v-if="!isUploading"
+                            class="w-8 h-8 mb-4 text-gray-500"
+                            aria-hidden="true"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 20 16"
+                          >
+                            <path
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                            />
+                          </svg>
+                          <div
+                            v-else
+                            class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"
+                          ></div>
+                          <p class="mb-2 text-sm text-gray-500">
+                            <span class="font-semibold">{{
+                              isUploading
+                                ? "กำลังอัปโหลด..."
+                                : "คลิกเพื่ออัปโหลด"
+                            }}</span>
+                          </p>
+                        </div>
+                        <input
+                          type="file"
+                          class="hidden"
+                          accept="image/*"
+                          @change="
+                            (e) =>
+                              handleFileUpload(e, setFieldValue, values.images)
+                          "
+                          :disabled="isUploading"
+                        />
+                      </label>
+                    </div>
+
+                    <!-- Hidden input for validation -->
+                    <Field name="images" type="text" class="hidden" />
                     <ErrorMessage
                       name="images"
                       class="text-red-500 text-xs mt-1"

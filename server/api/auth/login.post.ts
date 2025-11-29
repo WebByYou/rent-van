@@ -6,16 +6,16 @@ export default defineEventHandler(async (event) => {
 
   const { username, password } = body;
 
-  // Simple check against env variable for now, as requested.
-  // In a real app, we would check the Admin table in DB.
+  // ตรวจสอบรหัสผ่านจาก environment variable
+  // ในแอปจริง ควรตรวจสอบจากตาราง Admin ในฐานข้อมูล
   if (password !== config.adminPassword) {
     throw createError({
       statusCode: 401,
-      statusMessage: "Unauthorized: Invalid password",
+      statusMessage: "รหัสผ่านไม่ถูกต้อง",
     });
   }
 
-  // Create JWT
+  // สร้าง JWT
   const token = jwt.sign(
     { username: "admin", role: "admin" },
     config.jwtSecret,
@@ -24,9 +24,9 @@ export default defineEventHandler(async (event) => {
     }
   );
 
-  // Set cookie
+  // ตั้งค่า cookie
   setCookie(event, "auth_token", token, {
-    httpOnly: false, // Allow client-side access to fix hydration mismatch
+    httpOnly: false, // อนุญาตให้ client-side เข้าถึงได้เพื่อแก้ปัญหา hydration mismatch
     secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 24, // 1 day
     path: "/",

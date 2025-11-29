@@ -93,6 +93,13 @@ const isContentMenuOpen = ref(true);
             >
               <span>🚐</span> จัดการรถ
             </NuxtLink>
+            <NuxtLink
+              to="/admin/contact"
+              class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors"
+              active-class="bg-gold-500 text-dark-900 font-bold"
+            >
+              <span>📞</span> ข้อมูลติดต่อ
+            </NuxtLink>
             <!-- Manage Content Group -->
             <div>
               <button
@@ -177,6 +184,14 @@ const isContentMenuOpen = ref(true);
               @click="isMobileMenuOpen = false"
             >
               <span>🚐</span> จัดการรถ
+            </NuxtLink>
+            <NuxtLink
+              to="/admin/contact"
+              class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors"
+              active-class="bg-gold-500 text-dark-900 font-bold"
+              @click="isMobileMenuOpen = false"
+            >
+              <span>📞</span> ข้อมูลติดต่อ
             </NuxtLink>
             <NuxtLink
               to="/admin/content"

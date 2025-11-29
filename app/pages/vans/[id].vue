@@ -8,6 +8,8 @@ const {
   error,
 } = await useFetch<Van>(`/api/vans/${route.params.id}`);
 
+const { data: config } = await useFetch("/api/config");
+
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat("th-TH", {
     style: "currency",
@@ -148,29 +150,23 @@ useHead({
                 <h3 class="text-xl font-serif font-bold mb-6 text-gold-400">
                   สนใจจองรถคันนี้?
                 </h3>
-                <p class="text-gray-300 mb-8 text-sm">
-                  ติดต่อเราเพื่อสอบถามคิวว่างและทำการจองได้ทันที
-                  พร้อมบริการคนขับมืออาชีพ
-                </p>
-
                 <div class="space-y-4">
-                  <button
-                    class="w-full bg-gold-500 text-dark-900 font-bold py-4 rounded-lg hover:bg-white transition-all duration-300 shadow-lg shadow-gold-500/20"
+                  <a
+                    v-if="config?.contact_phone"
+                    :href="`tel:${config.contact_phone}`"
+                    class="block w-full bg-gold-500 text-dark-900 font-bold py-4 rounded-lg hover:bg-white transition-all duration-300 shadow-lg shadow-gold-500/20 text-center"
                   >
-                    โทรจองเลย
-                  </button>
-                  <button
-                    class="w-full bg-transparent border border-white/20 text-white font-bold py-4 rounded-lg hover:bg-white/10 transition-all duration-300"
-                  >
-                    แอดไลน์สอบถาม
-                  </button>
+                    ({{ config.contact_phone }}) โทรเลย
+                  </a>
                 </div>
 
                 <div class="mt-8 pt-8 border-t border-white/10 text-center">
                   <p class="text-sm text-gray-400">
                     หรือโทรสอบถามข้อมูลเพิ่มเติม
                   </p>
-                  <p class="text-xl font-bold text-white mt-2">08x-xxx-xxxx</p>
+                  <p class="text-xl font-bold text-white mt-2">
+                    {{ config?.contact_phone || "-" }}
+                  </p>
                 </div>
               </div>
             </div>
