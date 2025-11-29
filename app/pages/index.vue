@@ -4,7 +4,14 @@ import type { Van } from "@prisma/client";
 const { data: response, status } = await useFetch("/api/vans", {
   lazy: true,
 });
-const vans = computed(() => response.value?.data || []);
+const vans = computed(() => {
+  if (!response.value?.data) return [];
+  return response.value.data.map((van: any) => ({
+    ...van,
+    createdAt: new Date(van.createdAt),
+    updatedAt: new Date(van.updatedAt),
+  }));
+});
 const { data: config } = await useFetch("/api/config");
 
 const services = [
