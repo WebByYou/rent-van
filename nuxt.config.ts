@@ -1,12 +1,12 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-// Nuxt Config - Restart Triggered
+// Nuxt Config - Restart Triggered (VueUse Installed)
 export default defineNuxtConfig({
   future: {
     compatibilityVersion: 4,
   },
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
-  modules: ["@nuxtjs/tailwindcss"],
+  modules: ["@nuxtjs/tailwindcss", "@vueuse/nuxt"],
   app: {
     head: {
       title: "Van VIP Service Thailand",
@@ -28,5 +28,6 @@ export default defineNuxtConfig({
   runtimeConfig: {
     jwtSecret: process.env.NUXT_JWT_SECRET,
     adminPassword: process.env.NUXT_ADMIN_PASSWORD,
+    imgbbApiKey: process.env.NUXT_IMGBB_API_KEY,
   },
 });

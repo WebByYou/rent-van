@@ -1,11 +1,40 @@
 export default defineEventHandler(async (event) => {
+  const query = getQuery(event);
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const search = query.search?.toString() || "";
+  const skip = (page - 1) * limit;
+
+  const where = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" as const } },
+          { plateNumber: { contains: search, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+
   try {
-    const vans = await prisma.van.findMany({
-      orderBy: {
-        createdAt: "desc",
+    const [vans, total] = await prisma.$transaction([
+      prisma.van.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+      prisma.van.count({ where }),
+    ]);
+
+    return {
+      data: vans,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
       },
-    });
-    return vans;
+    };
   } catch (error) {
     console.error("Error fetching vans:", error);
     throw createError({

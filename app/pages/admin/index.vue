@@ -9,13 +9,36 @@ definePageMeta({
   middleware: "auth",
 });
 
+// State
+const search = ref("");
+const page = ref(1);
+const limit = ref(10);
+const debouncedSearch = refDebounced(search, 500);
+
 // Data fetching
-const { data: vans, refresh: refreshVans } = await useFetch<Van[]>("/api/vans");
+const {
+  data: vansData,
+  refresh: refreshVans,
+  status,
+} = await useFetch("/api/vans", {
+  query: {
+    page,
+    limit,
+    search: debouncedSearch,
+  },
+  watch: [page, debouncedSearch],
+});
+
+const vans = computed(() => vansData.value?.data || []);
+const meta = computed(
+  () => vansData.value?.meta || { total: 0, page: 1, lastPage: 1 }
+);
 
 // State
 const isDrawerOpen = ref(false);
 const editingId = ref<string | null>(null);
 const isUploading = ref(false);
+const selectedFile = ref<File | null>(null); // New state for selected file
 const initialValues = ref({
   name: "",
   plateNumber: "",
@@ -41,6 +64,7 @@ const schema = yup.object({
 
 // Actions
 const openDrawer = (van?: Van) => {
+  selectedFile.value = null; // Reset file
   if (van) {
     editingId.value = van.id;
     initialValues.value = {
@@ -72,23 +96,42 @@ const openDrawer = (van?: Van) => {
 const closeDrawer = () => {
   isDrawerOpen.value = false;
   editingId.value = null;
+  selectedFile.value = null;
 };
 
 const onSubmit = async (values: any) => {
-  const payload = {
-    ...values,
-    features: values.features
-      .split(",")
-      .map((s: string) => s.trim())
-      .filter(Boolean),
-    images: values.images
-      .split(",")
-      .map((s: string) => s.trim())
-      .filter(Boolean),
-    price: Number(values.price),
-  };
-
+  isUploading.value = true;
   try {
+    let imageUrl = values.images;
+
+    // Upload image if a new file is selected
+    if (selectedFile.value) {
+      const formData = new FormData();
+      formData.append("files", selectedFile.value);
+
+      const { urls } = await $fetch<{ urls: string[] }>("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (urls.length > 0) {
+        imageUrl = urls[0];
+      }
+    }
+
+    const payload = {
+      ...values,
+      features: values.features
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean),
+      images: imageUrl
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean),
+      price: Number(values.price),
+    };
+
     if (editingId.value) {
       // Update
       await $fetch(`/api/vans/${editingId.value}`, {
@@ -118,12 +161,15 @@ const onSubmit = async (values: any) => {
     await refreshVans();
     closeDrawer();
   } catch (e) {
+    console.error(e);
     Swal.fire({
       title: "เกิดข้อผิดพลาด",
-      text: editingId.value ? "ไม่สามารถแก้ไขข้อมูลได้" : "ไม่สามารถเพิ่มรถได้",
+      text: "ไม่สามารถบันทึกข้อมูลได้",
       icon: "error",
       confirmButtonText: "ตกลง",
     });
+  } finally {
+    isUploading.value = false;
   }
 };
 
@@ -155,7 +201,7 @@ const deleteVan = async (id: string) => {
   }
 };
 
-const handleFileUpload = async (
+const handleFileUpload = (
   event: Event,
   setFieldValue: any,
   currentImages: string
@@ -174,26 +220,14 @@ const handleFileUpload = async (
     return;
   }
 
-  isUploading.value = true;
-  const formData = new FormData();
-  formData.append("files", file);
+  // Store file for upload on submit
+  selectedFile.value = file;
 
-  try {
-    const { urls } = await $fetch<{ urls: string[] }>("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+  // Create local preview
+  const previewUrl = URL.createObjectURL(file);
+  setFieldValue("images", previewUrl);
 
-    // Replace existing image with new one (Single file mode)
-    if (urls.length > 0) {
-      setFieldValue("images", urls[0]);
-    }
-  } catch (e) {
-    Swal.fire("Error", "Upload failed", "error");
-  } finally {
-    isUploading.value = false;
-    input.value = ""; // Reset input
-  }
+  input.value = ""; // Reset input to allow selecting same file again
 };
 
 const removeImage = (
@@ -201,6 +235,7 @@ const removeImage = (
   setFieldValue: any,
   currentImages: string
 ) => {
+  selectedFile.value = null;
   setFieldValue("images", "");
 };
 </script>
@@ -208,18 +243,63 @@ const removeImage = (
 <template>
   <div class="p-6">
     <!-- Header & Actions -->
-    <div class="flex justify-between items-center mb-6">
+    <div
+      class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
+    >
       <h1 class="text-2xl font-bold text-gray-900">จัดการรถ</h1>
-      <button
-        @click="openDrawer()"
-        class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
-      >
-        <span>+</span> เพิ่มรถใหม่
-      </button>
+
+      <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+        <!-- Search Input -->
+        <div class="relative flex-grow sm:flex-grow-0">
+          <div
+            class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+          >
+            <svg
+              class="h-5 w-5 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </div>
+          <input
+            v-model="search"
+            type="text"
+            placeholder="ค้นหาชื่อรถ, ทะเบียน..."
+            class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+        </div>
+
+        <button
+          @click="openDrawer()"
+          class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 whitespace-nowrap"
+        >
+          <span>+</span> เพิ่มรถใหม่
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div
+      v-if="status === 'pending'"
+      class="flex justify-center items-center py-12"
+    >
+      <div
+        class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"
+      ></div>
     </div>
 
     <!-- Van List -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div
+      v-else
+      class="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col"
+    >
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
@@ -257,6 +337,11 @@ const removeImage = (
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-if="vans.length === 0">
+              <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                ไม่พบข้อมูลรถ
+              </td>
+            </tr>
             <tr v-for="van in vans" :key="van.id">
               <td
                 class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
@@ -310,6 +395,102 @@ const removeImage = (
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination -->
+      <div
+        class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6"
+        v-if="meta.total > 0"
+      >
+        <div
+          class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between"
+        >
+          <div>
+            <p class="text-sm text-gray-700">
+              แสดง
+              <span class="font-medium">{{ (meta.page - 1) * limit + 1 }}</span>
+              ถึง
+              <span class="font-medium">{{
+                Math.min(meta.page * limit, meta.total)
+              }}</span>
+              จาก
+              <span class="font-medium">{{ meta.total }}</span>
+              รายการ
+            </p>
+          </div>
+          <div>
+            <nav
+              class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+              aria-label="Pagination"
+            >
+              <button
+                @click="page > 1 ? page-- : null"
+                :disabled="page === 1"
+                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span class="sr-only">Previous</span>
+                <svg
+                  class="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+              <span
+                class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+              >
+                หน้า {{ meta.page }} / {{ meta.lastPage }}
+              </span>
+              <button
+                @click="page < meta.lastPage ? page++ : null"
+                :disabled="page === meta.lastPage"
+                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span class="sr-only">Next</span>
+                <svg
+                  class="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </nav>
+          </div>
+        </div>
+        <!-- Mobile Pagination -->
+        <div class="flex items-center justify-between sm:hidden w-full">
+          <button
+            @click="page > 1 ? page-- : null"
+            :disabled="page === 1"
+            class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          >
+            ก่อนหน้า
+          </button>
+          <span class="text-sm text-gray-700">
+            หน้า {{ meta.page }} / {{ meta.lastPage }}
+          </span>
+          <button
+            @click="page < meta.lastPage ? page++ : null"
+            :disabled="page === meta.lastPage"
+            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          >
+            ถัดไป
+          </button>
+        </div>
       </div>
     </div>
 
@@ -517,7 +698,6 @@ const removeImage = (
                           class="flex flex-col items-center justify-center pt-5 pb-6"
                         >
                           <svg
-                            v-if="!isUploading"
                             class="w-8 h-8 mb-4 text-gray-500"
                             aria-hidden="true"
                             xmlns="http://www.w3.org/2000/svg"
@@ -532,16 +712,8 @@ const removeImage = (
                               d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
                             />
                           </svg>
-                          <div
-                            v-else
-                            class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"
-                          ></div>
                           <p class="mb-2 text-sm text-gray-500">
-                            <span class="font-semibold">{{
-                              isUploading
-                                ? "กำลังอัปโหลด..."
-                                : "คลิกเพื่ออัปโหลด"
-                            }}</span>
+                            <span class="font-semibold">คลิกเพื่ออัปโหลด</span>
                           </p>
                         </div>
                         <input
@@ -552,7 +724,6 @@ const removeImage = (
                             (e) =>
                               handleFileUpload(e, setFieldValue, values.images)
                           "
-                          :disabled="isUploading"
                         />
                       </label>
                     </div>
@@ -587,9 +758,35 @@ const removeImage = (
                   <div class="pt-4 border-t border-gray-200">
                     <button
                       type="submit"
-                      class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      :disabled="isUploading"
+                      class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {{ editingId ? "บันทึกการแก้ไข" : "เพิ่มรถ" }}
+                      <span v-if="isUploading" class="flex items-center gap-2">
+                        <svg
+                          class="animate-spin h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          ></circle>
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        กำลังบันทึก...
+                      </span>
+                      <span v-else>{{
+                        editingId ? "บันทึกการแก้ไข" : "เพิ่มรถ"
+                      }}</span>
                     </button>
                     <button
                       type="button"

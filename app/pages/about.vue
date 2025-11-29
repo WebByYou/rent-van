@@ -47,11 +47,13 @@ const features = [
     <!-- Hero Section -->
     <div class="relative py-24 bg-dark-900 overflow-hidden">
       <div class="absolute inset-0 opacity-20">
-        <img
-          src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=2021"
-          alt="Travel Background"
-          class="w-full h-full object-cover"
-        />
+        <ClientOnly>
+          <img
+            src="/images/about-van-generated.png"
+            alt="Travel Background"
+            class="w-full h-full object-cover"
+          />
+        </ClientOnly>
       </div>
       <div class="relative container mx-auto px-4 text-center">
         <h1 class="text-4xl md:text-5xl font-serif font-bold text-white mb-6">
@@ -68,11 +70,13 @@ const features = [
     <section class="py-20 container mx-auto px-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
         <div>
-          <img
-            src="https://images.unsplash.com/photo-1559416523-140ddc3d238c?auto=format&fit=crop&q=80&w=1000"
-            alt="Luxury Service"
-            class="rounded-2xl shadow-2xl sticky top-24"
-          />
+          <ClientOnly>
+            <img
+              src="/images/about-van-generated.png"
+              alt="Luxury Service"
+              class="rounded-2xl shadow-2xl sticky top-24"
+            />
+          </ClientOnly>
         </div>
         <div>
           <div
@@ -127,24 +131,6 @@ const features = [
             </p>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- CTA -->
-    <section class="py-20 bg-dark-900 text-white text-center">
-      <div class="container mx-auto px-4">
-        <h2 class="text-3xl md:text-4xl font-serif font-bold mb-6">
-          พร้อมสัมผัสประสบการณ์ระดับ VIP หรือยัง?
-        </h2>
-        <p class="text-gray-300 mb-8 max-w-xl mx-auto">
-          จองรถกับเราวันนี้ เพื่อการเดินทางที่เหนือกว่าในทุกระดับ
-        </p>
-        <NuxtLink
-          to="/"
-          class="inline-block bg-gold-500 text-dark-900 px-8 py-4 rounded-full font-bold hover:bg-white transition-all duration-300 shadow-lg shadow-gold-500/20"
-        >
-          จองรถเลย
-        </NuxtLink>
       </div>
     </section>
   </div>
