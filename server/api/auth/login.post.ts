@@ -21,8 +21,8 @@ export default defineEventHandler(async (event) => {
     // Compare with hash
     isValid = await bcrypt.compare(password, dbConfig.value);
   } else {
-    // Fallback to env password
-    isValid = password === config.adminPassword;
+    // Fallback to default password "admin"
+    isValid = password === "admin";
   }
 
   if (!isValid) {

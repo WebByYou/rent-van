@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 
 definePageMeta({
   layout: "admin",
+  middleware: "auth",
 });
 
 // Data fetching

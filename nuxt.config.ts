@@ -1,4 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+// Nuxt Config - Restart Triggered
 export default defineNuxtConfig({
   future: {
     compatibilityVersion: 4,

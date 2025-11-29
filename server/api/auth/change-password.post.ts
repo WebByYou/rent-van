@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   if (dbConfig && dbConfig.value) {
     isValid = await bcrypt.compare(currentPassword, dbConfig.value);
   } else {
-    isValid = currentPassword === config.adminPassword;
+    isValid = currentPassword === "admin";
   }
 
   if (!isValid) {
