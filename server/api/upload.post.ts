@@ -1,12 +1,6 @@
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { randomUUID } from "crypto";
+import { put } from "@vercel/blob";
 
 export default defineEventHandler(async (event) => {
-  // Ensure the upload directory exists
-  const uploadDir = join(process.cwd(), "public", "uploads");
-  await mkdir(uploadDir, { recursive: true });
-
   const files = await readMultipartFormData(event);
   if (!files || files.length === 0) {
     throw createError({
@@ -19,12 +13,11 @@ export default defineEventHandler(async (event) => {
 
   for (const file of files) {
     if (file.filename) {
-      const ext = file.filename.split(".").pop();
-      const newFilename = `${randomUUID()}.${ext}`;
-      const filePath = join(uploadDir, newFilename);
-
-      await writeFile(filePath, file.data);
-      uploadedUrls.push(`/uploads/${newFilename}`);
+      // Upload to Vercel Blob
+      const { url } = await put(file.filename, file.data, {
+        access: "public",
+      });
+      uploadedUrls.push(url);
     }
   }
 

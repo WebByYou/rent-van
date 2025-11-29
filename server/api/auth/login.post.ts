@@ -1,4 +1,8 @@
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -6,9 +10,22 @@ export default defineEventHandler(async (event) => {
 
   const { username, password } = body;
 
-  // ตรวจสอบรหัสผ่านจาก environment variable
-  // ในแอปจริง ควรตรวจสอบจากตาราง Admin ในฐานข้อมูล
-  if (password !== config.adminPassword) {
+  // 1. Check for password hash in database
+  const dbConfig = await prisma.siteConfig.findUnique({
+    where: { key: "admin_password_hash" },
+  });
+
+  let isValid = false;
+
+  if (dbConfig && dbConfig.value) {
+    // Compare with hash
+    isValid = await bcrypt.compare(password, dbConfig.value);
+  } else {
+    // Fallback to env password
+    isValid = password === config.adminPassword;
+  }
+
+  if (!isValid) {
     throw createError({
       statusCode: 401,
       statusMessage: "รหัสผ่านไม่ถูกต้อง",

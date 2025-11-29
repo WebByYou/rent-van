@@ -145,6 +145,13 @@ const isContentMenuOpen = ref(true);
                 </NuxtLink>
               </div>
             </div>
+            <NuxtLink
+              to="/admin/password"
+              class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors"
+              active-class="bg-gold-500 text-dark-900 font-bold"
+            >
+              <span>🔒</span> เปลี่ยนรหัสผ่าน
+            </NuxtLink>
           </nav>
           <div class="p-4 border-t border-white/10">
             <button
@@ -200,6 +207,14 @@ const isContentMenuOpen = ref(true);
               @click="isMobileMenuOpen = false"
             >
               <span>📝</span> จัดการเนื้อหา
+            </NuxtLink>
+            <NuxtLink
+              to="/admin/password"
+              class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors"
+              active-class="bg-gold-500 text-dark-900 font-bold"
+              @click="isMobileMenuOpen = false"
+            >
+              <span>🔒</span> เปลี่ยนรหัสผ่าน
             </NuxtLink>
           </nav>
           <div class="p-4 border-t border-white/10">
